@@ -5,8 +5,7 @@ RN-seq is utilized to screen a set of genes which are expressed at significantly
 * Gene differential expression analysis with EdgR 
 
 You can find the work on this web page:
-https://github.com/zilanwen/RNA_seq_intro
-
-You can get all the data we will use for RNA analysis in my GitHub
 https://zilanwen.github.io/RNA_seq_intro/
 
+You can get all the data we will use for RNA analysis in my GitHub
+https://github.com/zilanwen/RNA_seq_intro
