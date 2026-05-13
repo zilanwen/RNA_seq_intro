@@ -1,0 +1,751 @@
+---
+title: 'Differential Gene Expression Analysis '
+author: "Zilan Wen"
+date: "2026-05-15"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    toc_float:
+      collapsed: true
+      smooth_scoll: true
+  word_document:
+    toc: true
+    toc_depth: '3'
+  pdf_document:
+    toc: true
+    toc_depth: '3'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Install R package, RStudio, directory set-up
+
+## Install R and RStudio
+
+Install R and install RStudio on your own laptop or owned computer <https://posit.co/download/rstudio-desktop/> based on your operating system,  available for Linux, MacOS, and Windows
+
+Install R and install RStudio on the University computers: go to Start manu --> Software Center --> search for RStudio, and R for Windows. The current version of R in the computers here is 4.6.0
+
+## Differential expression analysis (DEA) work directory setting up
+
+Open up RStudio and setting up a new project for DEA analysis
+
+1.Go to the `File` menu and select `New Project`.
+
+2.In the `New Project` window, choose `New Directory`. Then, choose `New Project`. Name your new directory `RNA_seq_DEA` and then Create the project as subdirectory of:`the Desktop` or `OneDrive - University of Helsinki` (or location of your choice).
+
+3.The new project should automatically open in RStudio.\
+
+![1](C:/Users/Zilan/OneDrive - University of Helsinki/ZilanWen Github/RNA_seq_intro/image/Create_RStudio_Project.gif){width=80%}\
+
+To check whether or not you are in the correct working directory, use getwd(). The path Desktop/RNA_seq_DEA should be returned to you in the console.
+
+
+```{r, message=FALSE}
+getwd()
+```
+
+To get the location of working directory
+For example:
+At Desktop, build a folder
+At RStudio --> Session --> Set Working Directory --> Choose Directory --> Desktop --> RNA-seq_DEA
+
+or use code below: 
+```{r,eval=FALSE} 
+setwd("C:/Users/username/Desktop/RNA-seq_DEA")
+```
+
+Check the current R version. The current R version is R-4.6.0 
+```{r,eval=FALSE} 
+R.Version()
+```
+Within your working directory use the New folder button in the bottom right panel to create two new directories `data` and `results`.
+
+Now we need to download the files from `Moodle` and the data list which looks like below\
+![data](C:/Users/Zilan/OneDrive - University of Helsinki/ZilanWen Github/RNA_seq_intro/image/data.png){width=15%}
+
+Then we go to the File menu and select New File, then select **R markdown**. This should open up a script editor in the top left hand corner. This is where we will be typing and saving all commands required for this analysis. 
+Now save the file as DEA_script.R. When finished your working directory should now look similar to this:\
+![directories](C:/Users/Zilan/OneDrive - University of Helsinki/ZilanWen Github/RNA_seq_intro/image/dir.png)
+
+
+`data` for the original data, `results` for generated files and figures.
+
+
+# Assignment
+
+You maybe have a few of questions about the RNA-Seq tutorial assignment,
+
+* Is R markdown documents the preferred format? 
+
+* Is there also an option to turn in the R scripts and associated plots?
+
+* What is the expected contents of results to be included in the submission?
+
+* Are we supposed to include both the code and the results that come from running it along with all of the different plots? 
+
+* What is(/are) the thing(s) to be demonstrated when grading this assignment?
+
+* What is the deadline for the submission of this assignment?
+
+
+Q: Is R markdown documents the preferred format?
+
+The preferred format is to `Knit to Word` from R markdown, and send the .doc file to the email `zilan.wen@helsinki.fi`.
+
+Q: Is there also an option to turn in the R scripts and associated plots?
+
+A:You can have the option that writing down data analysis report  (.doc or .pdf format) which has result description with tables, figures in the main text and discussion, with supplementary other figures, tables, code files.  Zip them and sent email to `zilan.wen@helsinki.fi`.
+
+Q: What is the expected contents of results to be included in the submission?
+
+A: The results include:\
+
+  - Sample level quality control\
+    - figure: plotMDS.Infection.png, PlotPCA_dds.pdf, PlotHeatmap_dds.pdf
+  - Count distribution\
+    - figure: count distribution.png
+  - The amount of upregulated genes and downregulated genes\
+    - table to show the number of upregulated genes and downregulated genes
+    - figure plotSmear.InfectionRNAseq.png\
+    
+Supplementary files:
+
+1. the table of raw counts together named 'infection.rawCounts.csv'.
+
+2. the normalized counts without filter named 'infection.normCPM.csv'
+
+3. Normalized counts after filtered by DESeq2, file named such as 'normalized_counts_DESeq2.csv'
+
+4. Normalized counts by TMM in EdgeR, files named 'Infection.filtered.normCPM.csv'.
+
+5. The up-regulated genes saved in the file named 'lrt.Ha_vs_Ctr_UP.csv'
+
+6. The down-regulated genes saved in the file named 'lrt.Ha_vs_Ctr_DW.csv'
+
+The results list like below:\
+![results list](C:/Users/Zilan/OneDrive - University of Helsinki/ZilanWen Github/RNA_seq_intro/image/Github13.png){width=30%}
+
+Q:Are we supposed to include both the code and the results that come from running it along with all of the different plots? 
+
+A: Yes.
+
+Q: What is(/are) the thing(s) to be demonstrated when grading this assignment?
+
+The things to be demonstrated: Learning about the count normalization, sample-level quality control by PCA, selecting differentially expressed genes(DEGs).
+
+Q: What is the deadline for the submission of this assignment?
+ 
+A: The deadline is 30.05.2026.
+
+
+# Count normalization 
+Created on 13.05.2026  
+@author: Zilan Wen  
+Email: zilan.wen@helsinki.fi 
+
+## Normalization Overview
+The first step in the DE analysis workflow is count normalization, which is necessary to make accurate comparisons of gene expression between samples.
+
+The main factors often considered during normalization are:
+
+*  sequencing depth or coverage.
+
+![4](C:/Users/Zilan/OneDrive - University of Helsinki/ZilanWen Github/RNA_seq_intro/image/Github4.png){width=50%}
+
+*  Gene length
+
+*  RNA composition
+
+These three factors have been described very well in [DEG workshop Salmon] (https://github.com/hbctraining/DGE_workshop_salmon/blob/master/lessons/02_DGE_count_normalization.md)
+
+### Common normalization methods
+
+*  `CPM` *counts per million*  counts scaled by total number of reads.
+
+*  `TPM`*transcripts per kilobase million*  counts per length of transcript (kb) per million reads mapped.
+
+*  `RPKM` or `RKPM` *reads/fragments per kilobase of exon per million reads / fragments mapped*  similar to TPM.
+`DESeq2's median of ratios`  counts divided by sample-specific size factors determined by median ratio of gene counts relative to geometric mean per gene.
+
+
+*  `EdgeR's trimmed mean of M values (TMM)` uses a weighted trimmed mean of the log expression ratios between samples.
+
+
+The differences between RPKM, FPKM and TPM are explained clearly by [SatQuest video](https://www.rna-seqblog.com/rpkm-fpkm-and-tpm-clearly-explained/)
+
+### DESeq2-normalized counts: Median of ratios method 
+
+This method is explained clearly in [DEG_workshop_salmon](https://github.com/hbctraining/DGE_workshop_salmon/blob/master/lessons/02_DGE_count_normalization.md)
+Since tools for differential expression analysis are comparing the counts between sample groups for the same gene, gene length does not need to be accounted for by the tool. However, `sequencing depth` and `RNA composition` need to be taken into account.
+
+## Count normalization of our dataset with DESeq2 
+For transcriptome study, RNA samples which are isolated from control samples and treatment samples are sent to sequencing company. The following steps are :
+
+*  RNA-seq with a sequencing depth of 10-30 M reads per library (at least 3 biological replicates per sample)
+
+*  Aligning or mapping the quality-filtered sequenced reads to respective genome (e.g. HISAT2 or STAR or Bowtie2).
+
+*  Quantifying reads that are mapped to genes or transcripts (e.g.HTseq)
+
+*  Gene differential expression analysis
+
+*  Functional analysis such as enrichment of known biological functions, interactions, or pathways
+
+
+**RNA samples**
+*Heterobasidion annosum* is a forest pathogen which can cause root and stem rot disease on Scots pine and Norway spruce. In this experiment, two-month old Scots pine plants were inoculated with H. annosum. After one month infection, total RNA was extracted from Scots pine roots. Control plants were fungus-free. We have three biological replicates for each treatment. The treatment samples are `Ha1`,`Ha2`, `Ha3` and the control samples are `Ctr1`, `Ctr2`, `Ctr3`. Since genome of Scots pine is not available, we align reads to *Pinus taeda* genome which can be found in plantgenie <https://plantgenie.org/>.
+
+In this tutorial we start with raw reads count ´.txt´ files, normalize the counts using DESeq2.This requires a few steps:
+
+*  1. Install packages `DESeq2`, `EdgeR`
+
+*  2. Build a file description `fileDesc.txt` file for all `.txt` files about counts matrix,including file path, inoculation, and description. 
+
+*  3. Read data files.
+
+*  4. Build `meta` data. `meta` file is similar to `filedesc`, bnut we use meta for create `DESeqDataset` object. Ensure the row names of the metadata dataframe are present and in the same order as the column names of the counts data frame.
+
+*  5. Create `DESeqDataset` object
+
+*  6. Generate size factors
+
+*  7. Generate the normalized counts
+
+### Install packages
+
+Install `DESeq2`and  package`EdgeR`
+```{r,eval=FALSE}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("DESeq2",force = TRUE)
+BiocManager::install("edgeR",force = TRUE)
+```
+
+
+### Build a file description 
+
+Here the file description called `fileDesc` is already build and save in `data` folder. We will use it for reading a list of seperated files.
+
+### Read data files
+
+Set to the current work directory
+
+```{r}
+setwd('C:/Users/Zilan/OneDrive - University of Helsinki/ZilanWen Github/RNA_seq_intro')
+```
+
+Now we start to read raw data
+```{r}
+Coinfection.targets<-read.delim("./data/fileDesc.txt")
+```
+change the rownames of the dataframe `Coinfection.targets`, later on we don't need to rename column names.
+```{r}
+rownames(Coinfection.targets)<-c("Ha1","Ha2","Ha3","Ctr1","Ctr2","Ctr3")
+```
+load the packege `edgeR`and `DESeq2`
+```{r, message=FALSE}
+library(edgeR)
+library(DESeq2)
+```
+read the six `.txt` files listed in `Coinfection.targets`.
+
+```{r}
+Coinfection.orig <- readDGE(Coinfection.targets, header=F)
+```
+check the dimension of the data set
+```{r}
+dim(Coinfection.orig)
+```
+chreck the first 6 rows of the data
+
+```{r}
+head(Coinfection.orig)
+```
+Extact counts dataframe
+```{r}
+Coinfection.rawCount <- Coinfection.orig$count
+dim(Coinfection.rawCount)
+head(Coinfection.rawCount)
+```
+### Build meta data
+We define `sampletype`: we only have two types of samples, Control and Ha-infection
+```{r}
+sampletype <- factor(c(rep("Ha",3), rep("Ctr", 3)))
+```
+Build meta data frame
+```{r}
+meta <- data.frame(sampletype, row.names = colnames(Coinfection.orig$count))
+```
+check the column name of counts dataframe
+```{r}
+colnames(Coinfection.orig$count)
+```
+check the rowname of meta dataframe
+```{r}
+rownames(meta)
+```
+Check that sample names match in both files
+```{r}
+all(colnames(Coinfection.orig$count) %in% rownames(meta))
+```
+### Create `DESeqDataset` object
+
+load the package `DESeq2`
+Create DESEq2 dataset `dds`
+```{r, message=FALSE}  
+library(DESeq2)
+dds <- DESeqDataSetFromMatrix(Coinfection.orig, colData = meta, design = ~ sampletype)
+```
+If you want to view dds, you can use the code:
+```{r}
+head(counts(dds))
+```
+
+### Generate size factors
+To perform the median of ratios method of normalization, DESeq2 has a single estimateSizeFactors() function that will generate size factors.
+```{r}
+dds <- estimateSizeFactors(dds)
+```
+take a look at the normalization factor applied to each sample 
+```{r}
+sizeFactors(dds)
+```
+
+
+### Generate the normalized counts
+Now, to retrieve the normalized counts matrix from dds, we use the counts() function and add the argument normalized=TRUE.
+```{r}
+normalized_counts <- counts(dds, normalized=TRUE)
+```
+
+
+Save the `normalized_counts`into results to your local path.
+```{r,eval=FALSE}
+write.csv(normalized_counts, file="./results/coinfection_normalized_counts_DESeq2.csv")
+```
+
+# Sample-level quality Control
+
+## Principal Component Analysis (PCA)
+
+### PCA overview
+
+A useful initial step in an RNA-seq analysis is often to assess overall similarity between samples:
+
+*  Which samples are similar to each other, which are different?
+
+*  Does this fit to the expectation from the experiment’s design?
+
+*  What are the major sources of variation in the dataset?
+
+To explore the similarity of our samples, we will be performing sample-level QC using Principal Component Analysis (PCA) and hierarchical clustering methods. These methods/tools allow us to check how well similar the replicates are to each other (clustering) and to make sure that the experimental condition is the major source of variation in the data. Sample-level QC can also help identify any samples behaving like outliers; we can further explore any potential outliers to determine whether they need to be removed prior to DE analysis.
+
+These unsupervised clustering methods are run using log2 transformed normalized counts. The log2 transformation improves the distances/clustering for visualization. Instead of using an ordinary log2 transform, we will be using regularized log transform (rlog), to avoid any bias from the abundance of low-count genes; Note1 below explains this in more detail.
+
+For more details, please go to [DEG workshop Salmon](https://github.com/zilanwen/DGE_workshop_salmon_online/blob/master/lessons/03_DGE_QC_analysis.md)
+
+### Using our dataset for PCA
+
+*  **Transform normalized counts for the dataset**
+
+To improve the distances/clustering for the PCA and heirarchical clustering visualization methods, we need to moderate the variance across the mean by applying the rlog transformation to the normalized counts.
+
+Transform counts for data visualization
+
+```{r}
+rld <- rlog(dds, blind=TRUE)
+```
+The `blind=TRUE` argument is to make sure that the `rlog()` function does not take our sample groups into account - i.e. does the transformation in an unbiased manner. When performing quality assessment, it is important to include this option. The [DESeq2 vignette](https://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#blind-dispersion-estimation) has more details about this.
+
+The `rlog()` function returns a `DESeqTransform` object, another type of DESeq-specific object. The reason you don't just get a matrix of transformed values is because all of the parameters (i.e. size factors) that went into computing the rlog transform are stored in that object. We use this object to plot the PCA and heirarchical clustering figures for quality assessment.
+
+*  **start with PCA**
+
+The function plotPCA() requires two arguments as input: a DESeqTransform object and the "intgroup" (interesting group), i.e. the name of the column in our metadata that has information about the experimental sample groups.
+```{r}
+plotPCA(rld, intgroup="sampletype")
+```
+If we want to save PDF file on own computer:
+
+```{r,eval=FALSE}
+pdf("./results/PlotPCA_dds.pdf")
+plotPCA(rld, intgroup="sampletype")
+dev.off()
+```
+
+*  **Exercise**:
+
+    1. What does the above plot tell you about the similarity of samples?
+
+    2. Does it fit the expectation from the experimental design?
+
+    3. What do you think the %variance information (in the axes titles) tells you about the data in the context of the PCA?
+
+## Hierarchical Clustering Heatmap
+
+Similar to PCA, hierarchical clustering is another, complementary, method for identifying strong patterns in a dataset and potential outliers. The heatmap displays the **correlation of gene expression for all pairwise combinations of samples** in the dataset. Since the majority of genes are not differentially expressed, samples generally have high correlations with each other (values higher than 0.80). Samples below 0.80 may indicate an outlier in your data and/or sample contamination.
+
+There is no built-in function in DESeq2 for plotting the heatmap for diplaying the pairwise correlation between all the samples and the hierarchical clustering information; we will use the `pheatmap()` function from the `pheatmap` package. This function cannot use the `DESeqTransform` object as input, but requires a matrix or dataframe. So, the first thing to do is retrieve that information from the `rld` object using a function called `assay()` (from the `SummarizedExperiment` package) that converts the data in a `DESeqTransform` object to a simple 2-dimensional data structure (a matrix in this case).
+
+Extract the rlog matrix from the object using `assay` function which is part of the `SummarizedExperiment` package which is a DESeq2 dependency and is loaded with the `DESeq2` library
+ 
+```{r}
+rld_mat <- assay(rld)
+```
+
+Next, we need to compute the pairwise correlation values for all the samples. We can do this using the `cor()` function:
+```{r}
+rld_cor <- cor(rld_mat) 
+```
+check the output of `cor()`, make note of the row names and column names
+```{r}
+head(rld_cor)
+
+```
+We will use `meta` for annotation argument later, let's check `meta` :
+```{r}
+head(meta)
+```
+Install `pheatmap` package and load the package
+```{r, eval=FALSE}
+install.packages("pheatmap")
+
+?pheatmap # help page for pheatmap
+```
+Plot heatmap using the correlation matrix and the metadata object
+```{r}
+library(pheatmap)
+pheatmap(rld_cor, annotation = meta)
+```
+
+If we want to change color, we can try the codes below:\
+R color in Brewer's palettes can be available the link <https://r-graph-gallery.com/38-rcolorbrewers-palettes>
+
+pheatmap function instruction are also available [pheatmap] (https://www.rdocumentation.org/packages/pheatmap/versions/1.0.12/topics/pheatmap)
+
+```{r}
+heat.colors <- RColorBrewer::brewer.pal(6, "Blues")
+pheatmap(rld_cor, annotation = meta, color = heat.colors, border_color=NA, fontsize = 10, 
+  		fontsize_row = 10, height=20)
+```
+
+If you want to save the heatmap in local path in your computer:
+
+
+```{r,eval=FALSE}
+pdf("./results/PlotHeatmap_dds.pdf")
+heat.colors <- RColorBrewer::brewer.pal(6, "Blues")
+pheatmap(rld_cor, annotation = meta, color = heat.colors, border_color=NA, fontsize = 10, 
+  		fontsize_row = 10, height=20)
+```
+
+# Differential expression analysis (DEA) using EdgeR
+
+Differential expression analysis can be carried out using DESeq2 or using EdgeR. The DESeq2 methods has been describes in [DGE workshop Salmon](https://github.com/hbctraining/DGE_workshop_salmon_online/blob/master/lessons/04a_design_formulas.md). 
+
+Here we will learn to use another method -- **EdgeR**
+
+Actual raw integer read counts (un-normalized) are then used for DGE analysis using edgeR. edgeR prefers the raw integer read counts.
+
+To know the current directory
+```{r,eval=FALSE} 
+getwd()
+```
+Navigate to your work directory, for example:
+At RStudio --> Session --> Set Working Directory --> Choose Directory --> Desktop --> RNA-seq_DEA
+
+or use code below: 
+```{r,eval=FALSE} 
+setwd("C:/Users/username/Desktop/RNA-seq_DEA")
+
+```
+## Read the individual file by a meta file called fileDesc.txt
+load EdgeR package
+```{r, message=FALSE}
+library(edgeR)
+options(digits=3)
+```
+To tells R where the data files are
+Check the data saving path in the fileDesc.txt, which could be same path as the individuals.
+```{r}
+infection.targets<-read.delim("./data/fileDesc.txt")
+```
+To check Coinfection.targets
+```{r}
+infection.targets
+```
+change the rawnames of the dataframe `Coinfection.targets`, later on we don't need to rename column names.
+```{r}
+rownames(infection.targets)<-c("Ha1","Ha2","Ha3","Ctr1","Ctr2","Ctr3")
+```
+To check `Coinfection.targets` again, The difference with the above one is an addtional rownames on the left side
+
+```{r}
+infection.targets
+```
+read and merges a set of text files containing gene expression counts, it makes a DGEList object directly
+```{r}
+infection <- readDGE(infection.targets, header=F)
+```
+Check the dimension of DGElist R object
+```{r}
+dim(infection)
+head(infection)
+```
+
+## Raw count distribution
+
+Get the raw mapped count before filtering
+```{r}
+infection.rawCount <- infection$count
+head(infection.rawCount)
+```
+```{r,eval=FALSE}
+install.packages("ggplot2")
+```
+
+```{r}
+library(ggplot2)
+```
+To get an idea about how RNA-seq counts are distributed, let's plot a histogram of the counts for a single sample, 'Ha1':
+```{r}
+ggplot(infection.rawCount) +
+  geom_histogram(aes(x = Ha1), stat = "bin", bins = 200) +
+  xlab("Raw expression counts") +
+  ylab("Number of genes")
+```
+  
+Export the .png file
+```{r,,eval=FALSE}
+png("./results/count distribution.png", res=300, height=1800, width=1800)
+ggplot(infection.rawCount) +
+  geom_histogram(aes(x = Ha1), stat = "bin", bins = 200) +
+  xlab("Raw expression counts") +
+  ylab("Number of genes")
+dev.off()
+```
+
+## Count normalization with TMM in EdgeR
+
+Export raw count table into results folder
+```{r,eval=FALSE}
+write.csv(infection.rawCount, file="./results/infection.rawCounts.csv")
+```
+Get the counts per million (TMM normalised) before filtering
+```{r}
+infection.normCPM <- cpm(calcNormFactors(infection))
+dim(infection.normCPM)
+head(infection.normCPM)
+```
+
+```{r,eval=FALSE}
+write.csv(infection.normCPM, file="./results/infection.normCPM.csv")
+```
+
+## Filter counts per million (CPM) out and get smaller size of libraries
+
+Keep genes that are expressed at least 1 CPM in at least 3 libraries, normally it is the number of biological replicates of smaller group
+
+```{r}
+infection.filtered <- rowSums(cpm(infection)>1) >=3
+
+```
+
+```{r}
+table(infection.filtered)
+```
+ Libraries size of data BEFORE filtering
+```{r}
+infection$samples$lib.size
+```
+cover the original file with our filter data
+```{r}
+Infection <- infection[infection.filtered,]
+```
+libraries size of data after filtering
+```{r}
+colSums(Infection$counts)
+```
+```{r}
+dim(Infection)
+```
+Update the filtered libraries size
+```{r}
+Infection$samples$lib.size <- colSums(Infection$counts)
+Infection$samples
+```
+
+##  Count normalization after filter
+
+Performed normalisation with TMM method
+```{r}
+Infection = calcNormFactors(Infection)
+```
+The libraries after normalisation
+```{r}
+Infection$samples
+```
+Get the counts per million (TMM normalised) after filtering
+```{r}
+Infection.filtered.normCPM <-cpm(calcNormFactors(Infection))
+```
+Export TMM normalized count table after filtering
+```{r, eval=FALSE}
+write.csv(Infection.filtered.normCPM, file="./results/Infection.filtered.normCPM.csv")
+```
+## Experimental design
+Treatment factor
+```{r}
+group<-factor(c('Ha','Ha','Ha',"Ctr","Ctr","Ctr"))
+```
+Describe the experimental design,one factor with intercept, here Ctr is the intercept
+```{r}
+Infection.design <- model.matrix(~group)   
+rownames(Infection.design)<-colnames(Infection$counts)
+Infection.design
+
+```
+
+## Sample-level quality control by multidimensional scaling (MDS)
+
+to see if some samples are outliner. An MDS plot shows the relative similarities of the six samples.
+```{r}
+plotMDS(Infection, main="MDS plot of RNA-Seq", labels=colnames(Infection$counts))
+
+```
+Export the MDS plot to a PNG file
+
+```{r, eval=FALSE}
+png("./results/plotMDS.Infection.png", res=300, height=1800, width=1800)
+plotMDS(Infection, main="MDS plot of Infection RNA-Seq", labels=colnames(Infection$counts))
+dev.off()
+```
+
+## Estimating the common dispersion, trended dispersion, tagwwise dispersion
+
+Dispersion means biological coeffient of variation (BCV) squared.
+E.g. if genes expression typically differs from replicate to replicate by 20% its BCV is 0.2, and its dispersion is 0.04.
+Estimating the common dispersion
+```{r eval=FALSE}
+Infection <- estimateGLMCommonDisp(Infection, Infection.design)
+```
+Estimating the trended dispersion
+```{r}
+Infection <- estimateGLMTrendedDisp(Infection, Infection.design)
+```
+Estimating the tagwwise dispersion
+```{r}
+Infection <- estimateGLMTagwiseDisp(Infection, Infection.design)
+```
+Creating a visual representation of the mean-variance relationship and BCV-mean logCPM relationship
+```{r,eval=FALSE}
+plotMeanVar(Infection, show.tagwise.vars=T,NBline=T)
+```
+
+```{r}
+plotBCV(Infection)
+```
+The square root of dispersion is the coefficient of biological variation (BCV). The common
+BCV is on the high side, considering that this is a designed experiment using genetically
+identical plants. The trended dispersion shows a decreasing trend with expression level. At low logCPM, the dispersions are very large indeed.
+
+## Fit DGEList and design matrix to genewise GLM
+
+```{r}
+Infection.fit <- glmFit(Infection, Infection.design)
+colnames(Infection.fit)
+```
+Likelihood test for genes respond differently between different conditions, table of top differentially expressed tags, n specify n tags to display
+```{r}
+lrt.Ha_vs_Ctr <- glmLRT(Infection.fit, coef=2)  # to compare Ha vs Ctr (Ha_vs_Ctr)
+
+```
+
+```{r}
+t1<-topTags(lrt.Ha_vs_Ctr, n=nrow(Infection))
+head(t1$table)
+```
+## Extract number of differentially expressed (DE) genes
+
+```{r}
+summary(decideTests(lrt.Ha_vs_Ctr, adjust.method="BH", p.value=0.05))
+
+```
+```{r}
+summary(decideTests(lrt.Ha_vs_Ctr, adjust.method="BH", p.value=0.01))
+```
+
+
+The UP-regulated genes (can change logFC to be more strict)
+
+```{r}
+nrow(subset(topTags(lrt.Ha_vs_Ctr, n=586)$table,  logFC > 0))
+```
+```{r}
+lrt.Ha_vs_Ctr_UP <- subset(topTags(lrt.Ha_vs_Ctr, n=586)$table, logFC > 0)
+```
+
+
+The DW-regulated genes (can change logFC to be more strict)
+
+```{r}
+nrow(subset(topTags(lrt.Ha_vs_Ctr, n=586)$table,  logFC < 0))
+
+```
+```{r}
+
+lrt.Ha_vs_Ctr_DW <- subset(topTags(lrt.Ha_vs_Ctr, n=586)$table, logFC < 0)
+```
+
+## Differentially expressed transcripts' tag
+```{r}
+DEtags.lrt.Ha_vs_Ctr <- rownames(Infection)[as.logical(decideTests(lrt.Ha_vs_Ctr, adjust.method="BH", p.value=0.05))]
+```
+Export list of UP-regulated and DW-regulated transcripts
+
+```{r,eval=FALSE}
+write.csv(lrt.Ha_vs_Ctr_UP, file="./results/lrt.Ha_vs_Ctr_UP.csv")
+write.csv(lrt.Ha_vs_Ctr_DW, file="./results/lrt.Ha_vs_Ctr_DW.csv")
+```
+
+
+To ask all the genes label as grey color
+```{r}
+Infection.colHavsCtr = rep('grey55', nrow(Infection))
+
+```
+To assign colour for DE transcripts
+```{r}
+Infection.colHavsCtr[lrt.Ha_vs_Ctr$table$PValue < 0.05 & lrt.Ha_vs_Ctr$table$logFC >0 ] <- "red"
+Infection.colHavsCtr[lrt.Ha_vs_Ctr$table$PValue < 0.05 & lrt.Ha_vs_Ctr$table$logFC <0 ] <- "blue"
+```
+Plot Smear plot with adjustment on Y-axis label
+```{r}
+par(omi=c(0.1,0.1,0.1,0.1), las=1, cex=0.5, mgp=c(3,1,0), cex.main=1.8, cex.lab=1.4, cex.axis=1.4)
+plotSmear(lrt.Ha_vs_Ctr, de.tags=DEtags.lrt.Ha_vs_Ctr, xlab="log-counts per million (logCPM)", ylab="log2-fold change (log2FC)", main="Ha infection compared to Control", pch=19, cex=0.4, smearWidth=0.5, panel.first=grid(), smooth.scatter=FALSE, ylim=c(-7,7), yaxs="i")
+abline(h=c(-1,1),col="dodgerblue")
+```
+Plot Smear plot with adjustment on Y-axis label and colour of DE tags changed
+```{r}
+par(omi=c(0.1,0.1,0.1,0.1), las=1, cex=0.5, mgp=c(3,1,0), cex.main=1.8, cex.lab=1.4, cex.axis=1.4)
+plotSmear(lrt.Ha_vs_Ctr, xlab="log-counts per million (logCPM)", ylab="log2-fold change (log2FC)", main="a infection compared to Control", smearWidth=0.5, pch=21, cex=0.4, deCol="red", col=Infection.colHavsCtr, ylim=c(-7,7), yaxs="i")
+abline(h=c(-1,1),col="dodgerblue")
+```
+
+Plot Smear plot with adjustment on Y-axis label and colour of DE tags changed and export as png
+```{r,eval=FALSE}
+png("./results/plotSmear.InfectionRNAseq.png", res=300, height=1800, width=1800)
+par(omi=c(0.1,0.1,0.1,0.1), las=1, cex=0.5, mgp=c(3,1,0), cex.main=1.8, cex.lab=1.4, cex.axis=1.4)
+plotSmear(lrt.Ha_vs_Ctr, xlab="log-counts per million (logCPM)", ylab="log2-fold change (log2FC)", main="Ha infection compared to Control", smearWidth=0.5, pch=21, cex=0.4, deCol="red", col=Infection.colHavsCtr, ylim=c(-7,7), yaxs="i")
+abline(h=c(-1,1),col="dodgerblue")
+dev.off()
+```
+
+
+
